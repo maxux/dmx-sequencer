@@ -20,9 +20,9 @@ void diea(char *str, int err) {
 
 int univers_commit(char *univers, size_t unilen) {
     int fd;
-	struct sockaddr_un addr;
+    struct sockaddr_un addr;
 
-	if((fd = socket(PF_UNIX, SOCK_DGRAM, 0)) < 0)
+    if((fd = socket(PF_UNIX, SOCK_DGRAM, 0)) < 0)
         diep("socket");
 
     memset(&addr, 0, sizeof(addr));
@@ -80,57 +80,57 @@ int main() {
     snd_seq_t *seq;
     snd_seq_addr_t *ports;
     char univers[512];
-	int err;
+    int err;
 
     // initialize empty univers
     memset(univers, 0, sizeof(univers));
 
     // connect to midi controller
-	if((err = snd_seq_open(&seq, "default", SND_SEQ_OPEN_DUPLEX, 0)) < 0)
+    if((err = snd_seq_open(&seq, "default", SND_SEQ_OPEN_DUPLEX, 0)) < 0)
         diea("open: sequencer", err);
 
-	if((err = snd_seq_set_client_name(seq, "mididmx")) < 0)
+    if((err = snd_seq_set_client_name(seq, "mididmx")) < 0)
         diea("client: set name", err);
 
     int caps = SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE;
     int type = SND_SEQ_PORT_TYPE_MIDI_GENERIC | SND_SEQ_PORT_TYPE_APPLICATION;
 
-	if((err = snd_seq_create_simple_port(seq, "mididmx", caps, type)) < 0)
+    if((err = snd_seq_create_simple_port(seq, "mididmx", caps, type)) < 0)
         diea("create: simple port", err);
 
     if(!(ports = calloc(sizeof(snd_seq_addr_t), 1)))
         diep("ports: calloc");
 
     // hardcoded port 28 keyboard
-	if((err = snd_seq_parse_address(seq, &ports[0], "28")) < 0)
+    if((err = snd_seq_parse_address(seq, &ports[0], "28")) < 0)
         diea("parse: address", err);
 
-	if((err = snd_seq_connect_from(seq, 0, ports[0].client, ports[0].port)) < 0)
+    if((err = snd_seq_connect_from(seq, 0, ports[0].client, ports[0].port)) < 0)
         diea("ports: connect", err);
 
-	struct pollfd *pfds;
-	int npfds;
+    struct pollfd *pfds;
+    int npfds;
 
     npfds = snd_seq_poll_descriptors_count(seq, POLLIN);
-	pfds = alloca(sizeof(*pfds) * npfds);
+    pfds = alloca(sizeof(*pfds) * npfds);
 
     // polling events
     while(1) {
         snd_seq_event_t *event;
 
-		snd_seq_poll_descriptors(seq, pfds, npfds, POLLIN);
-		if(poll(pfds, npfds, -1) < 0)
-			diep("poll");
+        snd_seq_poll_descriptors(seq, pfds, npfds, POLLIN);
+        if(poll(pfds, npfds, -1) < 0)
+            diep("poll");
 
-		while((err = snd_seq_event_input(seq, &event)) > 0) {
+        while((err = snd_seq_event_input(seq, &event)) > 0) {
             if(!event)
                 continue;
 
            handle_event(event, univers, sizeof(univers));
         }
-	}
+    }
 
-	snd_seq_close(seq);
+    snd_seq_close(seq);
 
     return 0;
 }

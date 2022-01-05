@@ -42,31 +42,58 @@ int univers_commit(char *univers, size_t unilen) {
     return 0;
 }
 
+static int note_in(int note, int *notes) {
+    for(int i = 0; ; i++) {
+        if(notes[i] == 0)
+            return -1;
+
+        if(notes[i] == note)
+            return i;
+    }
+}
+
 int handle_event(const snd_seq_event_t *ev, char *univers, size_t unilen) {
+    // white keys
+    int notes[] = {48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 0};
+    int note;
+
     // customize univers
     if(ev->type == SND_SEQ_EVENT_NOTEON || ev->type == SND_SEQ_EVENT_NOTEOFF) {
-        if(ev->data.note.note == 48)
-            univers[4] = ev->data.note.velocity * 2;
-
-        if(ev->data.note.note == 50)
-            univers[5] = ev->data.note.velocity * 2;
-
-        if(ev->data.note.note == 52)
-            univers[6] = ev->data.note.velocity * 2;
-
-        if(ev->data.note.note == 60)
-            univers[7] = ev->data.note.velocity * 2;
-
-        if(ev->data.note.note == 62)
-            univers[8] = ev->data.note.velocity * 2;
-
-        if(ev->data.note.note == 64)
-            univers[9] = ev->data.note.velocity * 2;
+        if((note = note_in(ev->data.note.note, notes)) >= 0)
+            univers[4 + note] = ev->data.note.velocity * 2;
     }
 
     if(ev->type == SND_SEQ_EVENT_CONTROLLER) {
         if(ev->data.control.param == 72)
             univers[1] = ev->data.control.value * 2;
+
+        if(ev->data.control.param == 73) {
+            memset(univers + 4, ev->data.control.value * 2, 15);
+        }
+
+        if(ev->data.control.param == 74) {
+            univers[4] = ev->data.control.value * 2;
+            univers[7] = ev->data.control.value * 2;
+            univers[10] = ev->data.control.value * 2;
+            univers[13] = ev->data.control.value * 2;
+            univers[16] = ev->data.control.value * 2;
+        }
+
+        if(ev->data.control.param == 75) {
+            univers[5] = ev->data.control.value * 2;
+            univers[8] = ev->data.control.value * 2;
+            univers[11] = ev->data.control.value * 2;
+            univers[14] = ev->data.control.value * 2;
+            univers[17] = ev->data.control.value * 2;
+        }
+
+        if(ev->data.control.param == 76) {
+            univers[6] = ev->data.control.value * 2;
+            univers[9] = ev->data.control.value * 2;
+            univers[12] = ev->data.control.value * 2;
+            univers[15] = ev->data.control.value * 2;
+            univers[18] = ev->data.control.value * 2;
+        }
     }
 
     if(ev->type == SND_SEQ_EVENT_CHANPRESS) {

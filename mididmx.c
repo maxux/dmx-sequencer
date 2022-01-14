@@ -53,25 +53,66 @@ static int note_in(int note, int *notes) {
 }
 
 int handle_event(const snd_seq_event_t *ev, char *univers, size_t unilen) {
-    // white keys
-    int notes[] = {48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 0};
+    // int notes[] = {48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 0};
+    int mapping[] = {16, 17, 18, 20, 21, 22, 24, 25, 26, 28, 29, 30, 46, 47, 48, 50, 51, 52, 54, 55, 56, 58, 59, 60, 0};
+    int notes[] = {1, 4, 7, 10, 13, 16, 19, 22};
     int note;
 
     // customize univers
+    /*
     if(ev->type == SND_SEQ_EVENT_NOTEON || ev->type == SND_SEQ_EVENT_NOTEOFF) {
         if((note = note_in(ev->data.note.note, notes)) >= 0)
             univers[4 + note] = ev->data.note.velocity * 2;
     }
+    */
 
-    if(ev->type == SND_SEQ_EVENT_CONTROLLER) {
-        if(ev->data.control.param == 72)
-            univers[1] = ev->data.control.value * 2;
-
-        if(ev->data.control.param == 73) {
-            memset(univers + 4, ev->data.control.value * 2, 15);
+    if(ev->type == SND_SEQ_EVENT_NOTEON) {
+        if((note = note_in(ev->data.note.note, notes)) >= 0) {
+            univers[4 + (note * 3)] = 255;
+            univers[4 + (note * 3) + 1] = 255;
+            univers[4 + (note * 3) + 2] = 255;
         }
 
-        if(ev->data.control.param == 74) {
+        // full on
+        if(ev->data.note.note == 27)
+            memset(univers + 4, 255, 30);
+    }
+
+    if(ev->type == SND_SEQ_EVENT_NOTEOFF) {
+        if((note = note_in(ev->data.note.note, notes)) >= 0) {
+            univers[4 + (note * 3)] = 0;
+            univers[4 + (note * 3) + 1] = 0;
+            univers[4 + (note * 3) + 2] = 0;
+        }
+
+        // full off
+        if(ev->data.note.note == 27)
+            memset(univers + 4, 0, 30);
+    }
+
+    if(ev->type == SND_SEQ_EVENT_CONTROLLER) {
+        if((note = note_in(ev->data.control.param, mapping)) >= 0)
+            univers[note + 4] = ev->data.control.value * 2;
+
+        if(ev->data.control.param == 61)
+            univers[1] = ev->data.control.value * 2;
+
+        if(ev->data.control.param == 31) {
+            univers[19] = ev->data.control.value * 2;
+            univers[22] = ev->data.control.value * 2;
+        }
+
+        if(ev->data.control.param == 49) {
+            univers[20] = ev->data.control.value * 2;
+            univers[23] = ev->data.control.value * 2;
+        }
+
+        if(ev->data.control.param == 53) {
+            univers[21] = ev->data.control.value * 2;
+            univers[24] = ev->data.control.value * 2;
+        }
+
+        if(ev->data.control.param == 19) {
             univers[4] = ev->data.control.value * 2;
             univers[7] = ev->data.control.value * 2;
             univers[10] = ev->data.control.value * 2;
@@ -79,7 +120,7 @@ int handle_event(const snd_seq_event_t *ev, char *univers, size_t unilen) {
             univers[16] = ev->data.control.value * 2;
         }
 
-        if(ev->data.control.param == 75) {
+        if(ev->data.control.param == 23) {
             univers[5] = ev->data.control.value * 2;
             univers[8] = ev->data.control.value * 2;
             univers[11] = ev->data.control.value * 2;
@@ -87,7 +128,7 @@ int handle_event(const snd_seq_event_t *ev, char *univers, size_t unilen) {
             univers[17] = ev->data.control.value * 2;
         }
 
-        if(ev->data.control.param == 76) {
+        if(ev->data.control.param == 27) {
             univers[6] = ev->data.control.value * 2;
             univers[9] = ev->data.control.value * 2;
             univers[12] = ev->data.control.value * 2;

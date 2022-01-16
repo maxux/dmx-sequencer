@@ -22,7 +22,7 @@ int univers_commit(char *univers, size_t unilen) {
     int fd;
     struct sockaddr_un addr;
 
-    if((fd = socket(PF_UNIX, SOCK_DGRAM, 0)) < 0)
+    if((fd = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
         diep("socket");
 
     memset(&addr, 0, sizeof(addr));

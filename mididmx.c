@@ -94,6 +94,9 @@ int handle_event(const snd_seq_event_t *ev, char *univers, size_t unilen) {
         if((note = note_in(ev->data.control.param, mapping)) >= 0)
             univers[note + 4] = ev->data.control.value * 2;
 
+        if(ev->data.control.param == 57)
+            univers[2] = ev->data.control.value * 2;
+
         if(ev->data.control.param == 61)
             univers[1] = ev->data.control.value * 2;
 

@@ -1,9 +1,9 @@
-EXEC = midi-dmx
+EXEC = dmxseq
 SRC = $(wildcard *.c)
 OBJ = $(SRC:.c=.o)
 
 CFLAGS += -g -std=gnu99 -O2 -W -Wall -Wextra
-LDFLAGS += -lasound
+LDFLAGS += 
 
 all: $(EXEC)
 

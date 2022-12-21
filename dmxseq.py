@@ -3,7 +3,7 @@ import time
 import sys
 
 class DMXSequencer:
-    def __init__(self, server="/tmp/dmx.sock"):
+    def __init__(self, server=("127.0.0.1", 60877)): # "/tmp/dmx.sock"
         self.server = server
 
     def stateval(self, state):
@@ -17,7 +17,8 @@ class DMXSequencer:
 
     def fetchstate(self):
         # print("[+] requesting current dmx state")
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        # self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(self.server)
 
         self.sock.sendall(b"X")
@@ -25,17 +26,19 @@ class DMXSequencer:
 
         self.sock.close()
 
-        return self.stateval(data[0:32]) # truncate 32
+        return self.stateval(data[0:128]) # truncate 32
 
     def setstate(self, universe):
         # print("[+] sending dmx state")
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        # self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(self.server)
 
         frame = buckets = [0] * 512
         for i, state in enumerate(universe):
             frame[i] = int(state)
 
+        print(frame)
         self.sock.sendall(bytes(frame))
 
         self.sock.close()

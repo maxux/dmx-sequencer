@@ -3,6 +3,7 @@ import websockets
 import json
 import time
 import dmxseq
+import sqlite3
 
 config = {
     'http-listen-addr': "0.0.0.0",
@@ -12,11 +13,49 @@ config = {
     'ws-listen-port': 31501,
 }
 
+class DMXPresets():
+    def __init__(self, database="dmx.sqlite3"):
+        self.db = sqlite3.connect("dmx.sqlite3")
+
+    def close(self):
+        self.db.close()
+
+    def list(self):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT name, payload FROM presets',)
+        presets = []
+
+        for row in cursor.fetchall():
+            presets.append({"name": row[0], "value": json.loads(row[1])})
+
+        return presets
+
+    def load(self, name):
+        cursor = self.db.cursor()
+
+        cursor.execute('SELECT payload FROM presets WHERE name = ?', (name,))
+        data = cursor.fetchone()
+
+        if data == None:
+            return {}
+
+        return json.loads(data[0])
+
+    def save(self, name, payload):
+        cursor = self.db.cursor()
+
+        cursor.execute('INSERT INTO presets (name, payload) VALUES (?, ?)', (name, json.dumps(payload)))
+        self.db.commit()
+
+        return True
 
 class DMXWebUIServer():
     def __init__(self):
         self.wsclients = set()
         self.dmx = dmxseq.DMXSequencer()
+
+    def presets(self):
+        return DMXPresets()
 
     async def wsbroadcast(self, payload):
         if not len(self.wsclients):
@@ -45,19 +84,51 @@ class DMXWebUIServer():
 
         try:
             state = self.dmx.fetchstate()
-            print(state)
+            data = {"type": "state", "value": state}
+            print(data)
 
-            await self.wspayload(websocket, state)
+            await self.wspayload(websocket, data)
 
             while True:
                 if not websocket.open:
                     break
 
                 payload = await websocket.recv()
-                # print(payload)
 
-                state = json.loads(payload)
-                self.dmx.loads(state)
+                print("[+] message received")
+                data = json.loads(payload)
+                print(data)
+
+                if data["type"] == "change":
+                    state = data["value"]
+                    self.dmx.loads(state)
+
+                if data["type"] == "save":
+                    pre = self.presets()
+                    prestate = self.dmx.fetchstate()
+                    pre.save(data["value"], prestate)
+                    pre.close()
+
+                    response = {"type": "save", "value": True}
+                    await self.wspayload(websocket, response)
+
+                if data["type"] == "presets":
+                    pre = self.presets()
+                    prelist = pre.list()
+                    pre.close()
+
+                    response = {"type": "presets", "value": prelist}
+                    await self.wspayload(websocket, response)
+
+                if data["type"] == "load":
+                    pre = self.presets()
+                    loader = pre.load(data["value"])
+                    self.dmx.loads(loader)
+                    pre.close()
+
+                    # send frame like it was an update
+                    response = {"type": "state", "value": loader}
+                    await self.wspayload(websocket, response)
 
         finally:
             print("[+] websocket: client disconnected")

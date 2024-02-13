@@ -4,6 +4,7 @@ import json
 import time
 import dmxseq
 import sqlite3
+import syslog
 
 config = {
     'http-listen-addr': "0.0.0.0",
@@ -12,6 +13,9 @@ config = {
     'ws-listen-addr': "0.0.0.0",
     'ws-listen-port': 31501,
 }
+
+syslog.openlog(ident="webdmx", logoption=syslog.LOG_PID)
+syslog.syslog("Initializing webdmx gateway")
 
 class DMXPresets():
     def __init__(self, database="dmx.sqlite3"):
@@ -38,6 +42,8 @@ class DMXPresets():
 
         if data == None:
             return {}
+
+        syslog.syslog(f"Loading preset: {name}")
 
         return json.loads(data[0])
 

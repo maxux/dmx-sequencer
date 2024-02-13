@@ -126,18 +126,45 @@ class DMXWebUIServer():
                     response = {"type": "presets", "value": prelist}
                     await self.wspayload(websocket, response)
 
-                if data["type"] == "load":
+                if data["type"] in ["load", "load-add", "load-sub", "load-replace"]:
+                    current = self.dmx.fetchstate()
+
                     pre = self.presets()
                     loader = pre.load(data["value"])
-                    self.dmx.loads(loader)
                     pre.close()
+
+                    if data["type"] == "load-add":
+                        for idx, val in enumerate(loader):
+                            if val > 0:
+                                current[idx] = val
+
+                        loader = current
+
+                    if data["type"] == "load-sub":
+                        for idx, val in enumerate(loader):
+                            if val > 0:
+                                nval = current[idx] - val if current[idx] > val else 0
+                                current[idx] = nval
+
+                        loader = current
+
+                    self.dmx.loads(loader)
 
                     # send frame like it was an update
                     response = {"type": "state", "value": loader}
                     await self.wspayload(websocket, response)
 
+        except websockets.exceptions.ConnectionClosedOK:
+            print("[+] websocket: connection closed")
+
+        except websockets.exceptions.ConnectionClosedError:
+            print("[+] websocket: connection closed (with error)")
+
+        except ConnectionResetError:
+            print("[+] websocket: connection reset")
+
         finally:
-            print("[+] websocket: client disconnected")
+            print("[+] websocket: discarding client")
             self.wsclients.remove(websocket)
 
     def run(self):

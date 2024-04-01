@@ -58,7 +58,8 @@ class DMXPresets():
 class DMXWebUIServer():
     def __init__(self):
         self.wsclients = set()
-        self.dmx = dmxseq.DMXSequencer()
+        server = ("10.241.0.200", 60877)
+        self.dmx = dmxseq.DMXSequencer(server)
 
     def presets(self):
         return DMXPresets()

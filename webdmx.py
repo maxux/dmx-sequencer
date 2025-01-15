@@ -58,6 +58,8 @@ class DMXPresets():
 class DMXWebUIServer():
     def __init__(self):
         self.clients = {}
+        self.master = 255
+        self.state = []
 
         server = ("10.241.0.200", 60877)
         self.dmx = dmxseq.DMXSequencer(server)
@@ -92,8 +94,9 @@ class DMXWebUIServer():
         self.clients[clientid] = websocket
 
         try:
-            state = self.dmx.fetchstate()
-            data = {"type": "state", "value": state}
+            # state = self.dmx.fetchstate()
+            state = self.state
+            data = {"type": "state", "value": state, "master": self.master}
             # print(data)
 
             await self.wspayload(websocket, data)
@@ -108,9 +111,10 @@ class DMXWebUIServer():
                 # print(data)
 
                 if data["type"] == "change":
-                    state = data["value"]
-                    master = data["master"]
-                    self.dmx.loads(state, master)
+                    self.state = data["value"]
+                    self.master = data["master"]
+
+                    self.dmx.loads(self.state, self.master)
 
                     forward = {
                         "type": "state", # simulate state notifier
@@ -138,7 +142,8 @@ class DMXWebUIServer():
                     await self.wspayload(websocket, response)
 
                 elif data["type"] in ["load", "load-add", "load-sub", "load-replace"]:
-                    current = self.dmx.fetchstate()
+                    # current = self.dmx.fetchstate()
+                    current = self.state
 
                     pre = self.presets()
                     loader = pre.load(data["value"])
@@ -160,6 +165,7 @@ class DMXWebUIServer():
                         loader = current
 
                     self.dmx.loads(loader, 255)
+                    self.state = loader
 
                     # send frame like it was an update
                     response = {"type": "state", "value": loader, "master": 255}

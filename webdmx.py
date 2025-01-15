@@ -1,15 +1,15 @@
 import asyncio
-import websockets
 import json
 import time
 import dmxseq
 import sqlite3
 import syslog
+import uuid
+import traceback
+import websockets
+from websockets.asyncio.server import serve
 
 config = {
-    'http-listen-addr': "0.0.0.0",
-    'http-listen-port': 31502,
-
     'ws-listen-addr': "0.0.0.0",
     'ws-listen-port': 31501,
 }
@@ -57,60 +57,70 @@ class DMXPresets():
 
 class DMXWebUIServer():
     def __init__(self):
-        self.wsclients = set()
+        self.clients = {}
+
         server = ("10.241.0.200", 60877)
         self.dmx = dmxseq.DMXSequencer(server)
 
     def presets(self):
         return DMXPresets()
 
-    async def wsbroadcast(self, payload):
-        if not len(self.wsclients):
-            return
-
+    async def wsbroadcast(self, payload, skip=None):
         content = json.dumps(payload)
 
-        for client in list(self.wsclients):
-            if not client.open:
+        for client in self.clients:
+            if client is skip:
                 continue
 
+            websocket = self.clients[client]
+
             try:
-                await client.send(content)
+                print(f"[+] broadcasting frame to: {client}")
+                await websocket.send(content)
 
             except Exception as e:
-                print(e)
+                traceback.print_exc()
 
     async def wspayload(self, websocket, payload):
         content = json.dumps(payload)
         await websocket.send(content)
 
-    async def handler(self, websocket, path):
-        self.wsclients.add(websocket)
+    async def handler(self, websocket):
+        clientid = str(uuid.uuid4())
+        print(f"[+][{clientid}] websocket: client connected")
 
-        print("[+] websocket: client connected")
+        self.clients[clientid] = websocket
 
         try:
             state = self.dmx.fetchstate()
             data = {"type": "state", "value": state}
-            print(data)
+            # print(data)
 
             await self.wspayload(websocket, data)
 
-            while True:
-                if not websocket.open:
-                    break
-
-                payload = await websocket.recv()
-
-                print("[+] message received")
+            async for payload in websocket:
                 data = json.loads(payload)
-                print(data)
+                if "type" not in data:
+                    print(f"[-][{clientid}] malformed request received")
+                    continue
+
+                print(f"[+][{clientid}] message received: {data['type']}")
+                # print(data)
 
                 if data["type"] == "change":
                     state = data["value"]
-                    self.dmx.loads(state)
+                    master = data["master"]
+                    self.dmx.loads(state, master)
 
-                if data["type"] == "save":
+                    forward = {
+                        "type": "state", # simulate state notifier
+                        "value": data["value"],
+                        "master": data["master"]
+                    }
+
+                    await self.wsbroadcast(forward, clientid)
+
+                elif data["type"] == "save":
                     pre = self.presets()
                     prestate = self.dmx.fetchstate()
                     pre.save(data["value"], prestate)
@@ -119,7 +129,7 @@ class DMXWebUIServer():
                     response = {"type": "save", "value": True}
                     await self.wspayload(websocket, response)
 
-                if data["type"] == "presets":
+                elif data["type"] == "presets":
                     pre = self.presets()
                     prelist = pre.list()
                     pre.close()
@@ -127,7 +137,7 @@ class DMXWebUIServer():
                     response = {"type": "presets", "value": prelist}
                     await self.wspayload(websocket, response)
 
-                if data["type"] in ["load", "load-add", "load-sub", "load-replace"]:
+                elif data["type"] in ["load", "load-add", "load-sub", "load-replace"]:
                     current = self.dmx.fetchstate()
 
                     pre = self.presets()
@@ -149,37 +159,43 @@ class DMXWebUIServer():
 
                         loader = current
 
-                    self.dmx.loads(loader)
+                    self.dmx.loads(loader, 255)
 
                     # send frame like it was an update
-                    response = {"type": "state", "value": loader}
-                    await self.wspayload(websocket, response)
+                    response = {"type": "state", "value": loader, "master": 255}
+                    await self.wsbroadcast(response)
+
+                else:
+                    print(f"[-][{clientid}] unknown request received: {data['type']}")
 
         except websockets.exceptions.ConnectionClosedOK:
-            print("[+] websocket: connection closed")
+            print(f"[+][{clientid}] websocket: connection closed (gracefully)")
 
         except websockets.exceptions.ConnectionClosedError:
-            print("[+] websocket: connection closed (with error)")
+            print(f"[+][{clientid}] websocket: connection closed with error")
 
         except ConnectionResetError:
-            print("[+] websocket: connection reset")
+            print(f"[+][{clientid}] websocket: connection reset")
 
         finally:
-            print("[+] websocket: discarding client")
-            self.wsclients.remove(websocket)
+            print(f"[+][{clientid}] websocket: discarding client")
+            del self.clients[clientid]
 
-    def run(self):
+    async def run(self):
         # standard polling handlers
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
+
         loop.set_debug(True)
 
         # handle websocket communication
-        websocketd = websockets.serve(self.handler, config['ws-listen-addr'], config['ws-listen-port'])
-        asyncio.ensure_future(websocketd, loop=loop)
+        async with serve(self.handler, config['ws-listen-addr'], config['ws-listen-port']):
+            print(f"[+] websocket: waiting clients on {config['ws-listen-addr']}:{config['ws-listen-port']}")
+            future_ws = asyncio.get_running_loop().create_future()
+            await future_ws
 
         print("[+] waiting for clients")
         loop.run_forever()
 
 if __name__ == '__main__':
     webui = DMXWebUIServer()
-    webui.run()
+    asyncio.run(webui.run())

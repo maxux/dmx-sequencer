@@ -220,8 +220,7 @@ class DMXWebUIServer():
             message = await channel.get_message(ignore_subscribe_messages=True, timeout=10)
             if message is not None:
                 try:
-                    data = message['data'].split(":")
-                    faders = json.loads(data[1])
+                    faders = json.loads(message['data'])
 
                     # FIXME -- if last change does not come from faders
                     #          ignore faders until reached

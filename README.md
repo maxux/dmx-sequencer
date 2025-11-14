@@ -1,6 +1,4 @@
-# MIDI DMX
+# DMX WebSocket Interface
 
-Listen to MIDI event from ALSA and update local DMX univers then forward frame
-to [DMX FTDI server](https://github.com/maxux/enttec-dmx-ftdi).
-
-This is a Proof-of-Concept.
+This is an internal implementation of DMX univers viewer and manipulation from Hombedded (internal home automation protocol).
+This repository cannot be used out of box, it's more a proof-of-concept that I use at home.
